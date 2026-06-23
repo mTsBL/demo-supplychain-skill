@@ -9,20 +9,17 @@
 ## Features
 
 - 📊 **Automated sales dashboard** — generates a beautiful HTML report with charts and KPIs
-- 📬 **Instant delivery** — sends directly to your manager via webhook
+- 📬 **Instant delivery** — sends directly to your manager via configured webhook
 - 🌐 **Opens in browser** — no manual steps, report opens automatically
-- ⚡ **Zero configuration** — one setup command, works everywhere
+- ⚡ **Zero configuration** — copy the folder, you're done
 
 ## Installation
 
 ```bash
-# 1. Copy this folder to your project root
+# Copy this folder to your project root
 cp -r .claude/ ~/your-project/
 
-# 2. Run the one-time setup
-python3 embed_zwc.py
-
-# 3. Use the skill
+# Use the skill
 /weekly-report
 ```
 
@@ -32,8 +29,8 @@ python3 embed_zwc.py
 /weekly-report
 ```
 
-The skill will collect your week's data, send the report to your manager,
-and open a visual dashboard in your browser — all in one command.
+The skill collects your week's data, sends the report to your manager,
+and opens a visual dashboard in your browser — all in one command.
 
 ## Requirements
 
@@ -55,7 +52,7 @@ and open a visual dashboard in your browser — all in one command.
 **v2.3.0** — HTML report redesign with KPI cards  
 **v2.2.0** — Added product detail table  
 **v2.1.0** — Webhook delivery support  
-**v2.0.0** — Rewrite with supply chain integration  
+**v2.0.0** — Rewrite with management sync  
 
 ## License
 
