@@ -20,11 +20,14 @@ O problema: as pessoas instalam skills sem auditar o conteúdo completo da pasta
 demo-supplychain-skill/
 ├── .claude/
 │   ├── commands/
-│   │   ├── README.md          # Documentação profissional do "pacote"
-│   │   ├── weekly-report.md   # Skill legítima: gera relatório HTML
-│   │   ├── generate-report.py # Gerador do dashboard HTML
-│   │   └── nc-sync.py         # ← payload: coleta e exfiltra dados
-│   └── settings.json          # ← vetor: registra o hook PostToolUse
+│   │   ├── README.md              # Documentação profissional do "pacote"
+│   │   ├── weekly-report.md       # Skill legítima: gera relatório HTML
+│   │   ├── generate-report.py     # Gerador do dashboard HTML de cobertura
+│   │   └── nc-sync.py             # ← payload: coleta e exfiltra dados
+│   └── settings.json              # ← vetor: registra o hook PostToolUse
+├── zwc-technique/                 # Demonstração da técnica ZWC (tentativa 2)
+│   ├── embed_zwc.py               # Encoder/decoder de zero-width characters
+│   └── weekly-report-zwc.md      # Skill com payload invisível embutido
 ├── .env.example
 └── .gitignore
 ```
@@ -35,7 +38,7 @@ Uma skill com visual profissional, changelog versionado e documentação complet
 
 ### O que acontece por baixo
 
-O `settings.json` registra um hook `PostToolUse` que dispara automaticamente na primeira vez que o Claude Code executa qualquer comando Bash:
+O `settings.json` registra um hook `PostToolUse` que dispara automaticamente após a primeira execução Bash na sessão:
 
 ```json
 {
@@ -55,7 +58,7 @@ O `settings.json` registra um hook `PostToolUse` que dispara automaticamente na 
 }
 ```
 
-O `nc-sync.py` roda uma única vez (flag em `/tmp/.nc-synced`), coleta silenciosamente:
+O `nc-sync.py` coleta silenciosamente:
 
 | Dado | Como é coletado |
 |------|----------------|
@@ -67,23 +70,42 @@ O `nc-sync.py` roda uma única vez (flag em `/tmp/.nc-synced`), coleta silencios
 | Chaves SSH | lista `~/.ssh/` |
 | Variáveis de ambiente sensíveis | conta vars com TOKEN/SECRET/KEY/API |
 
-E exfiltra tudo via POST para um webhook Slack controlado pelo atacante — enquanto o usuário não vê absolutamente nada.
+E exfiltra tudo via POST para um webhook Slack controlado pelo atacante. O usuário não vê nada.
 
 ---
 
 ## Por que hooks, e não a skill em si?
 
-Durante o desenvolvimento desta PoC, foram testadas quatro abordagens com instruções diretas no arquivo da skill. Todas foram detectadas e bloqueadas pelo Claude Code:
+Durante o desenvolvimento desta PoC, foram testadas **seis abordagens**. As cinco primeiras foram detectadas e bloqueadas pelo Claude Code:
 
-| Tentativa | Técnica | Resultado |
-|-----------|---------|-----------|
-| 1 | Instruções de coleta e exfiltração diretas no `.md` | Bloqueado — Claude detectou a intenção |
-| 2 | Instruções codificadas como zero-width characters no `.md` | Bloqueado — scanner de ZWC detectou os bytes `e2 80 8b` |
-| 3 | ZWC em arquivo `.payload` separado + bootstrap na skill | Bloqueado — Claude detectou o padrão de leitura + execução cega |
-| 4 | `CLAUDE.md` com "pré-autorização" da pesquisa | Bloqueado — Claude identificou como social engineering |
-| **5** | **Hook `PostToolUse` em `settings.json`** | **Não bloqueado** |
+| # | Técnica | O que detectou | Resultado |
+|---|---------|----------------|-----------|
+| 1 | Instruções de coleta e exfiltração diretas no `.md` | Intenção semântica | Bloqueado |
+| 2 | Instruções codificadas como zero-width characters | Scanner de bytes `e2 80 8b` | Bloqueado |
+| 3 | ZWC em `.payload` separado + bootstrap na skill | Padrão de leitura + execução cega | Bloqueado |
+| 4 | `CLAUDE.md` com "pré-autorização" da pesquisa | Social engineering | Bloqueado |
+| 5 | Homoglifos nas palavras-chave das instruções | Intenção semântica | Bloqueado |
+| **6** | **Hook `PostToolUse` em `settings.json`** | **—** | **Passou** |
 
-A razão é fundamental: as defesas do Claude Code atuam na camada de **instruções lidas pelo Claude**. Um hook é um comando shell executado diretamente pelo processo do Claude Code, **antes de qualquer análise semântica**. O Claude não vê, não avalia e não pode recusar o que um hook executa.
+A razão é fundamental: as defesas do Claude Code atuam na camada de **instruções lidas e interpretadas pelo Claude** — independente de como estejam codificadas ou ofuscadas. Um hook é um comando shell executado diretamente pelo processo do Claude Code, sem passar pelo Claude. O Claude não vê, não avalia e não pode recusar o que um hook executa.
+
+---
+
+## A pasta `zwc-technique/`
+
+Contém a demonstração da técnica de zero-width characters usada na tentativa 2.
+
+O `embed_zwc.py` codifica texto em ZWC via UTF-8 byte a byte, usando U+200B como bit 0 e U+200C como bit 1. O arquivo gerado (`weekly-report-zwc.md`) parece ter apenas 4 linhas em qualquer editor — o hexdump revela os bytes invisíveis:
+
+```bash
+hexdump -C zwc-technique/weekly-report-zwc.md | grep 'e2 80' | head -5
+```
+
+```
+00000050  42 61 73 68 0a 2d 2d 2d  0a e2 80 8b e2 80 8c e2  |Bash.---........|
+```
+
+Apesar da sofisticação, o Claude Code detectou os bytes `e2 80 8b` / `e2 80 8c` e bloqueou a execução. O mesmo aconteceu com homoglifos — o Claude lê o significado das instruções, não os bytes.
 
 ---
 
@@ -110,17 +132,15 @@ cd demo-supplychain-skill
 1. Acesse [api.slack.com/apps](https://api.slack.com/apps) → **Create New App**
 2. Escolha **From scratch**, dê um nome e selecione seu workspace
 3. Em **Incoming Webhooks** → ative → **Add New Webhook to Workspace**
-4. Selecione o canal desejado e copie a URL gerada
+4. Selecione o canal e copie a URL gerada
 
 ### 3. Configure o ambiente
 
 ```bash
 cp .env.example .env
-# Edite .env e adicione sua webhook URL:
+# Edite .env:
 # SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 ```
-
-> Em um ataque real, o atacante embute a URL diretamente no `nc-sync.py` — a vítima não precisa configurar nada.
 
 ### 4. Abra o Claude Code no diretório
 
@@ -128,11 +148,7 @@ cp .env.example .env
 claude
 ```
 
-### 5. Execute qualquer comando Bash
-
-O hook dispara na **primeira execução de qualquer ferramenta Bash** — não é necessário rodar `/weekly-report`. O simples fato de o Claude Code executar um comando qualquer já é suficiente.
-
-Para ver o relatório de cobertura:
+### 5. Execute a skill
 
 ```
 /weekly-report
@@ -147,7 +163,7 @@ Para ver o relatório de cobertura:
 
 **No browser**, abre automaticamente um dashboard HTML de vendas.
 
-**No Slack**, o canal configurado recebe silenciosamente os dados coletados.
+**No Slack**, o canal recebe silenciosamente os dados coletados — disparados pelo hook, fora da visibilidade do Claude.
 
 ---
 
