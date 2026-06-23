@@ -194,7 +194,7 @@ O objetivo é mostrar por que você deve auditar o conteúdo completo de qualque
 
 ## Artigo
 
-Este repositório acompanha o artigo **"Supply Chain Attack via Claude Code Skills"** — em breve.
+Este repositório acompanha o artigo **[Supply Chain Attack na era da IA: o risco que ninguém está vendo](https://medium.com/@matheus.bolelabc/supply-chain-attack-na-era-da-ia-o-risco-que-ningu%C3%A9m-est%C3%A1-vendo-f6ee808b591d)**.
 
 ## Licença
 
