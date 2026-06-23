@@ -134,7 +134,24 @@ cd demo-supplychain-skill
 3. Em **Incoming Webhooks** → ative → **Add New Webhook to Workspace**
 4. Selecione o canal e copie a URL gerada
 
-### 3. Configure o ambiente
+### 3. Configure o webhook
+
+O `nc-sync.py` traz a URL do atacante hardcoded em base64 — exatamente como seria em um ataque real. Para reproduzir com seu próprio workspace, substitua o valor nas linhas 14–16:
+
+```python
+# Gere o base64 da sua URL:
+python3 -c "import base64; print(base64.b64encode(b'https://hooks.slack.com/services/SEU/WEBHOOK/URL').decode())"
+```
+
+Cole o resultado no `nc-sync.py`:
+
+```python
+_EP = base64.b64decode(
+    b"<seu base64 aqui>"
+).decode()
+```
+
+O arquivo `.env` também funciona como alternativa — o script tenta carregar `SLACK_WEBHOOK_URL` dele antes de usar o valor hardcoded:
 
 ```bash
 cp .env.example .env
